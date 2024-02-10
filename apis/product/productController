@@ -1,0 +1,288 @@
+const productmodel = require('./productModel')
+const bcryrt = require('bcrypt')
+const saltRoutes = 10
+
+module.exports = {
+    products,
+    getOneproduct,
+    getAllproduct,
+    updateOneproduct,
+    updateManyProduct,
+    updateproduct,
+    deleteOnepoduct,
+    deleteManyProduct,
+} 
+
+function products(req,res){
+
+    let validations = []
+
+    if(!req.body.categoryId){
+        validations.push('categoryId')
+    }
+    if(!req.body.name){
+        validations.push('name')
+    }
+    if(!req.body.description){
+        validations.push('description')
+    }
+    if(!req.body.price){
+        validations.push('price')
+    }
+    if(!req.body.stock){
+        validations.push('stock')
+    }
+    if(!req.body.expiryDate){
+        validations.push('expiryDate')
+    }
+    if(!req.body.status){
+        validations.push('status')
+    }
+    if(validations.length>0){
+        res.send({
+            success:false,
+            status:400,
+            Message:validations.join(',')+" is required"
+        })
+    }
+    else{
+        productmodel.findOne({name:req.body.name})
+        .then(obj=>{
+            if(!!obj){
+                res.send({
+                    success:false,
+                    status:409,
+                    Message:"Product already exist"
+                })
+            }
+            else{
+                productmodel.countDocuments().then(total=>{
+
+                    let obj = new productmodel()
+                    obj.autoId = total+1
+                    obj.categoryId = req.body.categoryId
+                    obj.name = req.body.name
+                    obj.description = req.body.description
+                    obj.price = req.body.price
+                    obj.stock = req.body.stock
+                    obj.expiryDate = req.body.expiryDate
+                    obj.status = req.body.status
+    
+                    // multiple files upload
+                    console.log(req.files);
+                    req.files.forEach(element => {
+                        obj.images.push('category/'+element.filename)
+                    });
+    
+                    obj.save().then(doc=>{
+                        res.send({
+                            success:true,
+                            status:200,
+                            message:"Product added successfully",
+                            product:doc
+                        })
+                    }).catch(err=>{
+                        res.send({
+                            success:false,
+                            status:400,
+                            message:"ERROR =>"+err
+                        })
+                    })
+
+                }).catch(err=>{
+                    res.send({
+                        success:false,
+                        status:500,
+                        message:"ERROR =>"+err
+                    })
+                })
+            }
+        }).catch(err=>{
+            res.send({
+                success:false,
+                status:400,
+                message:"ERROR =>"+err
+            })
+        })
+    }
+}
+
+function getOneproduct(req,res){
+    productmodel.findOne({_id:req.body.id})
+    .populate("categoryId","name")
+    .then(obj=>{
+        if(!obj){
+            res.send({
+                success:false,
+                status:500,
+                message:"product not exist"
+            })
+        }
+        else{
+            res.send({
+                success:true,
+                status:200,
+                message:"Get product successfully",
+                Data:obj
+            })
+        }
+    }).catch(err=>{
+        res.send({
+            success:false,
+            status:500,
+            message:"ERROR =>"+err
+        })
+    })
+}
+function getAllproduct(req,res){
+    let startpoint = 0
+    let limit = 100000
+    if(req.body.startpoint != undefined){
+        startpoint = req.body.startpoint
+        delete req.body.startpoint
+        limit = 2
+    }
+
+    productmodel.find()
+    .populate("categoryId","-expiryDate -status")
+    // .sort({createdAt:-1})
+    .skip(startpoint)
+    .limit(limit)
+    .then(async productlist=>{
+        let total = await productmodel.countDocuments()
+        res.send({
+            success:true,
+            status:200,
+            message:"Get all products successfully",
+            total:total,
+            totalloaded:productlist.length,
+            data:productlist
+        })
+    }).catch(err=>{
+        res.send({
+            success:false,
+            status:400,
+            message:"ERROR =>"+err
+        })
+    })
+}
+
+function updateOneproduct(req,res){
+    productmodel.updateOne({_id:req.body.id},{name:req.body.name}).then(updateobj=>{
+        res.send({
+            success:true,
+            status:200,
+            message:"updated successfully",
+            update:updateobj
+        })
+    }).catch(err=>{
+        res.send({
+            success:false,
+            status:400,
+            message:"ERROR =>"+err
+        })
+    })
+}
+
+function updateManyProduct(req,res){
+    productmodel.updateMany({stock:req.body.stock}).then(updatedoc=>{
+        res.send({
+            success:true,
+            status:200,
+            message:"many products updated successfully",
+            data:updatedoc
+        })
+    }).catch(err=>{
+        res.send({
+            success:false,
+            status:400,
+            message:"ERROR =>"+err
+        })
+    })
+}
+
+function updateproduct(req,res){
+    if(!req.body.id){
+        res.send({
+            success:false,
+            status:400,
+            message:"id is required"
+        })
+    }
+    else{
+        productmodel.findOne().then(obj=>{
+            if(!obj){
+                res.send({
+                    success:false,
+                    status:409,
+                    message:"id not found"
+                })
+            }
+            else{
+                if(!!req.body.name){
+                    obj.name = req.body.name
+                }
+                if(!!req.body.price){
+                    obj.price = req.body.price
+                }
+                if(!!req.body.stock){
+                    obj.stock = req.body.stock
+                }
+                obj.save().then(updatedobj=>{
+                    res.send({
+                        success:true,
+                        status:200,
+                        message:"uddated successfully",
+                        data:obj
+                    })
+                }).catch(err=>{
+                    res.send({
+                        success:true,
+                        status:500,
+                        message:"ERROR =>"+err
+                    })
+                })
+            }
+        }).catch(err=>{
+            res.send({
+                success:false,
+                status:400,
+                message:"ERROR =>"+err
+            })
+        })
+    }
+    
+}
+
+function deleteOnepoduct(req,res){err
+    productmodel.deleteOne({_id:req.body.id}).then(deletedoc=>{
+        res.send({
+            success:true,
+            status:200,
+            message:"product has been deleted successfully",
+            delete:deletedoc
+        })
+    }).catch(err=>{
+        res.send({
+            success:false,
+            status:400,
+            message:"ERROR =>"+err
+        })
+    })
+}
+
+function deleteManyProduct(req,res){
+    productmodel.deleteMany().then(deletemanydoc=>{
+        res.send({
+            success:true,
+            status:200,
+            message:"many products deleted successfully",
+        })
+    }).catch(err=>{
+        res.send({
+            success:false,
+            status:400,
+            message:"ERROR =>"+err
+        })
+    })
+}
